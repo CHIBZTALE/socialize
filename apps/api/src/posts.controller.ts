@@ -62,6 +62,17 @@ export class PostsController {
     });
   }
 
+  @Get(':postId/reaction')
+  @UseGuards(AuthGuard)
+  async myReaction(@Param('postId') postId: string, @Req() req: any) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+    if (!post) throw new NotFoundException('Post not found');
+    return this.prisma.postReaction.findUnique({
+      where: { postId_userId: { postId, userId: req.user.id } },
+      select: { type: true },
+    });
+  }
+
   @Put(':postId/reaction')
   @UseGuards(AuthGuard)
   async react(@Param('postId') postId: string, @Req() req: any, @Body() dto: CreateReactionDto) {
