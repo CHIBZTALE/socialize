@@ -1,0 +1,21 @@
+{
+  "name": "socialize",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @socialize/api --filter @socialize/web dev",
+    "dev:api": "pnpm --filter @socialize/api dev",
+    "dev:web": "pnpm --filter @socialize/web dev",
+    "dev:mobile": "pnpm --filter @socialize/mobile start",
+    "db:up": "docker compose up -d postgres redis",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @socialize/api prisma:generate",
+    "db:migrate": "pnpm --filter @socialize/api prisma:migrate",
+    "build": "pnpm --recursive build"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}
