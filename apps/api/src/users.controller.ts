@@ -21,7 +21,15 @@ export class UsersController {
   async updateMe(@Req() req: any, @Body() dto: UpdateProfileDto) {
     const data: any = { ...dto };
     if (data.name !== undefined) data.name = data.name.trim();
-    if (data.username !== undefined) data.username = data.username.trim().toLowerCase();
+    if (data.username !== undefined) {
+      data.username = data.username.trim();
+      if (!data.username) throw new BadRequestException('Please choose a username.');
+      const existing = await this.prisma.user.findFirst({
+        where: { id: { not: req.user.id }, username: { equals: data.username, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (existing) throw new ConflictException('That username is already in use.');
+    }
     try {
       return await this.prisma.user.update({
         where: { id: req.user.id },
