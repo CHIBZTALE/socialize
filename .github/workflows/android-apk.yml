@@ -41,6 +41,10 @@ jobs:
           fi
           npx --yes eas-cli@latest project:init --force --non-interactive
 
+      - name: Check Expo SDK dependency compatibility
+        working-directory: apps/mobile
+        run: npx expo install --check
+
       - name: Generate Android project and verify Kotlin version
         working-directory: apps/mobile
         run: |
