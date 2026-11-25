@@ -43,9 +43,18 @@ export class FriendsController {
     }
     if (existing?.status === 'DECLINED') {
       if (existing.senderId !== req.user.id) throw new ConflictException('This request was previously declined.');
-      return this.prisma.friendRequest.update({ where: { id: existing.id }, data: { status: 'PENDING' } });
+      const changed = await this.prisma.friendRequest.updateMany({
+        where: { id: existing.id, status: 'DECLINED' }, data: { status: 'PENDING' },
+      });
+      if (!changed.count) throw new ConflictException('The friend request changed. Refresh and try again.');
+      return this.prisma.friendRequest.findUnique({ where: { id: existing.id } });
     }
-    return this.prisma.friendRequest.create({ data: { senderId: req.user.id, receiverId: userId } });
+    try {
+      return await this.prisma.friendRequest.create({ data: { senderId: req.user.id, receiverId: userId } });
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new ConflictException('A friend request already exists between these accounts.');
+      throw error;
+    }
   }
 
   @Post('requests/:requestId/accept')
@@ -53,8 +62,11 @@ export class FriendsController {
     const request = await this.prisma.friendRequest.findUnique({ where: { id: requestId } });
     if (!request) throw new NotFoundException('Friend request not found.');
     if (request.receiverId !== req.user.id) throw new ForbiddenException('Only the recipient can accept this request.');
-    if (request.status !== 'PENDING') throw new ConflictException('This request is no longer pending.');
-    return this.prisma.friendRequest.update({ where: { id: requestId }, data: { status: 'ACCEPTED' } });
+    const changed = await this.prisma.friendRequest.updateMany({
+      where: { id: requestId, receiverId: req.user.id, status: 'PENDING' }, data: { status: 'ACCEPTED' },
+    });
+    if (!changed.count) throw new ConflictException('This request is no longer pending.');
+    return this.prisma.friendRequest.findUnique({ where: { id: requestId } });
   }
 
   @Post('requests/:requestId/decline')
@@ -62,8 +74,11 @@ export class FriendsController {
     const request = await this.prisma.friendRequest.findUnique({ where: { id: requestId } });
     if (!request) throw new NotFoundException('Friend request not found.');
     if (request.receiverId !== req.user.id) throw new ForbiddenException('Only the recipient can decline this request.');
-    if (request.status !== 'PENDING') throw new ConflictException('This request is no longer pending.');
-    return this.prisma.friendRequest.update({ where: { id: requestId }, data: { status: 'DECLINED' } });
+    const changed = await this.prisma.friendRequest.updateMany({
+      where: { id: requestId, receiverId: req.user.id, status: 'PENDING' }, data: { status: 'DECLINED' },
+    });
+    if (!changed.count) throw new ConflictException('This request is no longer pending.');
+    return { success: true };
   }
 
   @Delete(':friendId')
