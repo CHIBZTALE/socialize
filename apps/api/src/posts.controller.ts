@@ -20,7 +20,7 @@ export class PostsController {
         author: { select: authorSelect },
         _count: { select: { comments: true, reactions: true } },
         media: {
-          where: { media: { status: 'READY' } },
+          where: { media: { is: { status: 'READY' } } },
           orderBy: { sortOrder: 'asc' },
           select: {
             media: { select: { id: true, publicUrl: true, mimeType: true, durationSeconds: true } },
