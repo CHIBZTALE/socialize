@@ -46,6 +46,14 @@ Run `pnpm dev:mobile`. For a physical Android phone, set `EXPO_PUBLIC_API_URL` i
 - `POST /auth/register` — `{ "name", "username", "email", "password" }`
 - `POST /auth/login` — `{ "email", "password" }`
 - `GET /users/me` — Bearer token required
+- `PATCH /users/me` — update display name, username and bio; Bearer token required
+- `GET /users/search?q=...` — search users; Bearer token required
+- `GET /friends` — list accepted friends; Bearer token required
+- `GET /friends/requests` — list incoming requests; Bearer token required
+- `POST /friends/requests/:userId` — send a friend request
+- `POST /friends/requests/:requestId/accept` — accept a request
+- `POST /friends/requests/:requestId/decline` — decline a request
+- `DELETE /friends/:friendId` — remove a friend
 - `GET /posts`
 - `POST /posts` — `{ "text" }`, Bearer token required
 
