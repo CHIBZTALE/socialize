@@ -41,6 +41,13 @@ jobs:
           fi
           npx --yes eas-cli@latest project:init --force --non-interactive
 
+      - name: Generate Android project and verify Kotlin version
+        working-directory: apps/mobile
+        run: |
+          npx expo prebuild --platform android --clean
+          echo "Checking generated Android Kotlin configuration..."
+          grep -R -n -E 'kotlinVersion.*1\\.9\\.25|android\\.kotlinVersion=1\\.9\\.25' android/build.gradle android/gradle.properties
+
       - name: Build Android preview APK
         working-directory: apps/mobile
         env:
