@@ -6,11 +6,17 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://socialize-api-ypp8.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://socialize-api-ypp8.onrender.com"
+      },
       "android": {
         "buildType": "app-bundle"
       }
