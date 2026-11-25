@@ -41,7 +41,26 @@ Web: http://localhost:3000
 API health: http://localhost:4000/health
 
 ## Mobile
-Run `pnpm dev:mobile`. For a physical Android phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your computer's LAN IP, e.g. `http://192.168.1.10:4000`. The phone and computer must share a network.
+Run `pnpm dev:mobile`. For a physical Android phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to a reachable API URL (for local testing, your computer's LAN IP, e.g. `http://192.168.1.10:4000`). The phone and computer must share a network.
+
+### Android builds
+The Expo EAS profiles are in `apps/mobile/eas.json`:
+- Preview APK: `cd apps/mobile && pnpm build:android:preview`
+- Production Android App Bundle: `cd apps/mobile && pnpm build:android:production`
+
+EAS requires an Expo account and first-time project setup/login. The preview profile produces an installable APK; the production profile produces an AAB for Play Store submission. These commands are configured but no build has been submitted yet.
+
+## Backend container
+A root `Dockerfile` is provided for a container host. Configure these runtime environment variables on the host:
+- `DATABASE_URL`: production PostgreSQL connection string
+- `JWT_SECRET`: unique random secret of at least 32 characters
+- `WEB_ORIGIN`: deployed web app origin (or comma-separated allowed origins)
+- `PORT`: provided by the host, defaults to 4000
+
+Run database migrations as a release/deploy step before serving traffic:
+`pnpm --filter @socialize/api exec prisma migrate deploy`
+
+Do not expose the database publicly. Use managed PostgreSQL backups and persistent storage for production data. The Docker image does not provision a database or deploy itself.
 
 ## API endpoints
 - `GET /health`
