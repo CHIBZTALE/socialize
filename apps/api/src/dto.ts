@@ -12,3 +12,10 @@ export class LoginDto {
 export class CreatePostDto {
   @IsString() @MinLength(1) @MaxLength(5000) text!: string;
 }
+
+export class UpdateProfileDto {
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(80) name?: string;
+  @IsOptional() @IsString() @MinLength(3) @MaxLength(24) @Matches(/^[a-zA-Z0-9_]+$/) username?: string;
+  @IsOptional() @IsString() @MaxLength(160) bio?: string;
+  @IsOptional() @IsString() @MaxLength(500) avatarUrl?: string;
+}
