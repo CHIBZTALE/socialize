@@ -59,6 +59,9 @@ jobs:
       - name: Build API
         run: pnpm --filter @socialize/api build
 
+      - name: Build API container image
+        run: docker build --tag socialize-api:ci .
+
       - name: Build web
         run: pnpm --filter @socialize/web build
         env:
@@ -86,6 +89,9 @@ jobs:
       - name: Validate Expo configuration
         working-directory: apps/mobile
         run: pnpm exec expo config --type public
+
+      - name: Validate EAS build profiles
+        run: node -e "JSON.parse(require('fs').readFileSync('apps/mobile/eas.json', 'utf8'))"
 
       - name: Type-check mobile application
         working-directory: apps/mobile
