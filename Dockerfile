@@ -12,4 +12,5 @@ ENV NODE_ENV=production
 ENV PORT=4000
 EXPOSE 4000
 
-CMD ["pnpm", "--filter", "@socialize/api", "start"]
+# Apply committed Prisma migrations before starting the API.
+CMD ["sh", "-c", "pnpm --filter @socialize/api exec prisma migrate deploy && exec pnpm --filter @socialize/api start"]
