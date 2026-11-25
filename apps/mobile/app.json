@@ -12,6 +12,16 @@
     "ios": {
       "bundleIdentifier": "com.socialize.app"
     },
-    "owner": "stiano"
+    "owner": "stiano",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
+    ]
   }
 }
