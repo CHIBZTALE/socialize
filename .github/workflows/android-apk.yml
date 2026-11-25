@@ -9,6 +9,7 @@ on:
       - ".github/workflows/android-apk.yml"
       - "apps/mobile/**"
       - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - "package.json"
 
 permissions:
