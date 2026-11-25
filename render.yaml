@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: socialize-api
+    runtime: docker
+    plan: free
+    region: ohio
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    dockerCommand: "sh -c 'pnpm --filter @socialize/api exec prisma migrate deploy && pnpm --filter @socialize/api start'"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
