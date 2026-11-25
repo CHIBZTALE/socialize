@@ -95,9 +95,12 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           npx --yes eas-cli@latest build:download --build-id "$EAS_BUILD_ID" --non-interactive
-          APK="$(find . -maxdepth 3 -type f -name '*.apk' -not -path './node_modules/*' -print -quit)"
+          # eas build:download stores artifacts in its shared runner cache, not
+          # in the current project directory. Locate the exact downloaded APK.
+          APK="$(find /tmp/runner/eas-cli-nodejs/eas-build-run-cache -type f -name '*.apk' -print -quit 2>/dev/null || true)"
           if [ -z "$APK" ]; then
-            echo "EAS completed, but no APK file was downloaded."
+            echo "EAS completed, but no APK was found in the EAS download cache."
+            find /tmp/runner -type f -name '*.apk' -print 2>/dev/null || true
             exit 1
           fi
           mkdir -p artifacts
