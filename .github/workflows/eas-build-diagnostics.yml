@@ -1,4 +1,5 @@
 name: Diagnose failed Socialize EAS build
+# Follow-up commit activates this diagnostic workflow on the default branch.
 
 on:
   push:
