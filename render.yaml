@@ -8,7 +8,6 @@ services:
     dockerContext: .
     healthCheckPath: /health
     autoDeployTrigger: commit
-    dockerCommand: "sh -c 'pnpm --filter @socialize/api exec prisma migrate deploy && pnpm --filter @socialize/api start'"
     envVars:
       - key: NODE_ENV
         value: production
