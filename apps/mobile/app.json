@@ -11,6 +11,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.socialize.app"
-    }
+    },
+    "owner": "stiano"
   }
 }
