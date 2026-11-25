@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Patch, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, Patch, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
 import { PrismaService } from './prisma.service';
 import { UpdateProfileDto } from './dto';
@@ -21,12 +21,17 @@ export class UsersController {
   async updateMe(@Req() req: any, @Body() dto: UpdateProfileDto) {
     const data: any = { ...dto };
     if (data.name !== undefined) data.name = data.name.trim();
-    if (data.username !== undefined) data.username = data.username.toLowerCase();
-    return this.prisma.user.update({
-      where: { id: req.user.id },
-      data,
-      select: { id: true, name: true, username: true, email: true, bio: true, avatarUrl: true, createdAt: true },
-    });
+    if (data.username !== undefined) data.username = data.username.trim().toLowerCase();
+    try {
+      return await this.prisma.user.update({
+        where: { id: req.user.id },
+        data,
+        select: { id: true, name: true, username: true, email: true, bio: true, avatarUrl: true, createdAt: true },
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new ConflictException('That username is already in use.');
+      throw error;
+    }
   }
 
   @Get('search')
