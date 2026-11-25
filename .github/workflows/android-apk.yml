@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build-android:
-    name: Build Socialize Android APK
+    name: Build and verify Socialize Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -60,7 +60,6 @@ jobs:
         run: |
           npx expo prebuild --platform android --clean
           echo "Checking generated Android Kotlin configuration..."
-          echo "Generated Gradle Kotlin settings:"
           grep -R -n '1.9.25\|1.9.24' android/build.gradle android/gradle.properties android/settings.gradle || true
           if ! grep -R -q '1.9.25' android; then
             echo "Kotlin 1.9.25 was not found in generated Android files."
@@ -72,3 +71,71 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --wait
+
+      - name: Identify the completed EAS build
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@latest build:list --platform android --status finished --limit 5 --json > /tmp/eas-builds.json
+          BUILD_ID="$(node -e '
+            const fs = require("fs");
+            const data = JSON.parse(fs.readFileSync("/tmp/eas-builds.json", "utf8"));
+            const builds = Array.isArray(data) ? data : (data.builds || data.data || []);
+            const selected = builds.find(b => (b.buildProfile || b.build_profile || b.profile) === "preview") || builds[0];
+            if (!selected || !selected.id) throw new Error("Could not identify the finished Android preview build.");
+            process.stdout.write(selected.id);
+          ')"
+          echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "Selected EAS build: $BUILD_ID"
+
+      - name: Download the actual APK from EAS
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@latest build:download --build-id "$EAS_BUILD_ID" --non-interactive
+          APK="$(find . -maxdepth 3 -type f -name '*.apk' -not -path './node_modules/*' -print -quit)"
+          if [ -z "$APK" ]; then
+            echo "EAS completed, but no APK file was downloaded."
+            exit 1
+          fi
+          mkdir -p artifacts
+          cp "$APK" artifacts/socialize-preview.apk
+          echo "Downloaded APK: $APK"
+          ls -lh artifacts/socialize-preview.apk
+
+      - name: Verify APK archive, package identity and signature
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          APK="artifacts/socialize-preview.apk"
+          unzip -t "$APK"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses >/dev/null || true
+            "$SDKMANAGER" "build-tools;35.0.0"
+          fi
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ] || [ -z "$AAPT" ]; then
+            echo "Android build-tools (apksigner/aapt) were not found."
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee artifacts/apk-signature-report.txt
+          "$AAPT" dump badging "$APK" | tee artifacts/apk-manifest-report.txt
+          grep -q "package: name='com.socialize.app'" artifacts/apk-manifest-report.txt
+          sha256sum "$APK" | tee artifacts/apk-sha256.txt
+          echo "APK integrity, signature and package identity checks passed."
+
+      - name: Upload verified APK and diagnostic reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: socialize-android-apk
+          path: |
+            apps/mobile/artifacts/socialize-preview.apk
+            apps/mobile/artifacts/apk-signature-report.txt
+            apps/mobile/artifacts/apk-manifest-report.txt
+            apps/mobile/artifacts/apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 14
