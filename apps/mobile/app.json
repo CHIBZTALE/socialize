@@ -13,6 +13,11 @@
       "bundleIdentifier": "com.socialize.app"
     },
     "owner": "stiano",
+    "extra": {
+      "eas": {
+        "projectId": "3e788c3c-57f9-4b1e-8765-3e94c7ce33f8"
+      }
+    },
     "plugins": [
       [
         "expo-build-properties",
