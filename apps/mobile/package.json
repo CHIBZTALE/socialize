@@ -11,6 +11,7 @@
     "build:android:production": "npx eas-cli build --platform android --profile production"
   },
   "dependencies": {
+    "@babel/runtime": "^7.27.0",
     "expo": "~52.0.0",
     "react": "18.3.1",
     "react-native": "0.76.5"
