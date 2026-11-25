@@ -29,15 +29,16 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Verify linked Expo project and retrieve failed build
+      - name: Retrieve full Gradle failure log
         working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          BUILD_ID: 087a9b31-ef21-48c6-8adc-9e4db5d2e5d0
+          BUILD_ID: 32183ff4-048f-419a-b168-32620df08183
         run: |
-          echo "===== LINKED EXPO PROJECT ====="
-          npx --yes eas-cli@latest project:info --non-interactive
-          echo "===== FAILED BUILD DETAILS ====="
-          npx --yes eas-cli@latest build:view "$BUILD_ID" --json | tee /tmp/eas-build.json
-          echo "===== BUILD LOG REFERENCES ====="
-          node -e "const d=require('/tmp/eas-build.json'); console.log(JSON.stringify(d, null, 2))"
+          npx --yes eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-build.json
+          node -e "const d=require('/tmp/eas-build.json'); console.log('BUILD STATUS:', d.status); console.log('ERROR:', JSON.stringify(d.error)); console.log('LOG FILES:', d.logFiles?.length || 0); if (!d.logFiles?.length) process.exit(2); require('fs').writeFileSync('/tmp/eas-log-url', d.logFiles[0])"
+          curl -fL "$(cat /tmp/eas-log-url)" -o /tmp/eas-build-log.txt
+          echo "===== GRADLE FAILURE CONTEXT ====="
+          grep -niE -C 8 'error|failed|failure|exception|could not|cannot find|not found|what went wrong' /tmp/eas-build-log.txt | tail -n 300 || true
+          echo "===== FINAL 250 LOG LINES ====="
+          tail -n 250 /tmp/eas-build-log.txt
