@@ -1,7 +1,3 @@
 packages:
   - 'apps/*'
   - 'packages/*'
-
-# Expo Android autolinking needs this package hoisted for pnpm workspaces.
-publicHoistPattern:
-  - expo-modules-autolinking
