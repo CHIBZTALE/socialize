@@ -36,10 +36,13 @@ jobs:
           BUILD_ID: 32183ff4-048f-419a-b168-32620df08183
         run: |
           set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zstd
           npx --yes eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-build.json
           node -e "const d=require('/tmp/eas-build.json'); console.log('BUILD STATUS:', d.status); console.log('ERROR:', JSON.stringify(d.error)); console.log('LOG FILES:', d.logFiles?.length || 0); if (!d.logFiles?.length) process.exit(2); require('fs').writeFileSync('/tmp/eas-log-url', d.logFiles[0])"
           curl -fL "$(cat /tmp/eas-log-url)" -o /tmp/eas-build-log.bin
-          echo "===== LOG FILE FORMAT ====="
+          echo "===== DOWNLOADED LOG DETAILS ====="
+          ls -lh /tmp/eas-build-log.bin
           file /tmp/eas-build-log.bin
           echo "===== DECODE LOG ====="
           if zstd -t /tmp/eas-build-log.bin >/dev/null 2>&1; then
@@ -49,8 +52,12 @@ jobs:
           elif unzip -t /tmp/eas-build-log.bin >/dev/null 2>&1; then
             unzip -p /tmp/eas-build-log.bin > /tmp/eas-build-log.txt
           else
-            cp /tmp/eas-build-log.bin /tmp/eas-build-log.txt
+            echo "Unknown compression; showing first 64 bytes"
+            od -An -tx1 -N64 /tmp/eas-build-log.bin
+            exit 3
           fi
+          echo "===== DECODED LOG SIZE ====="
+          wc -lc /tmp/eas-build-log.txt
           echo "===== GRADLE FAILURE CONTEXT ====="
           grep -niE -C 8 'error|failed|failure|exception|could not|cannot find|not found|what went wrong|ExpoModulesPackage' /tmp/eas-build-log.txt | tail -n 300 || true
           echo "===== FINAL 250 LOG LINES ====="
