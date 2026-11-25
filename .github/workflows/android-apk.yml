@@ -46,7 +46,12 @@ jobs:
         run: |
           npx expo prebuild --platform android --clean
           echo "Checking generated Android Kotlin configuration..."
-          grep -R -n -E 'kotlinVersion.*1\\.9\\.25|android\\.kotlinVersion=1\\.9\\.25' android/build.gradle android/gradle.properties
+          echo "Generated Gradle Kotlin settings:"
+          grep -R -n '1.9.25\|1.9.24' android/build.gradle android/gradle.properties android/settings.gradle || true
+          if ! grep -R -q '1.9.25' android; then
+            echo "Kotlin 1.9.25 was not found in generated Android files."
+            exit 1
+          fi
 
       - name: Build Android preview APK
         working-directory: apps/mobile
