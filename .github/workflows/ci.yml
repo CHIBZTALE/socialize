@@ -86,3 +86,7 @@ jobs:
       - name: Validate Expo configuration
         working-directory: apps/mobile
         run: pnpm exec expo config --type public
+
+      - name: Type-check mobile application
+        working-directory: apps/mobile
+        run: pnpm exec tsc --noEmit
