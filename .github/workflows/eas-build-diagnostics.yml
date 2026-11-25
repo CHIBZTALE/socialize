@@ -38,6 +38,6 @@ jobs:
           echo "===== LINKED EXPO PROJECT ====="
           npx --yes eas-cli@latest project:info --non-interactive
           echo "===== FAILED BUILD DETAILS ====="
-          npx --yes eas-cli@latest build:view "$BUILD_ID" --json --non-interactive | tee /tmp/eas-build.json
+          npx --yes eas-cli@latest build:view "$BUILD_ID" --json | tee /tmp/eas-build.json
           echo "===== BUILD LOG REFERENCES ====="
           node -e "const d=require('/tmp/eas-build.json'); console.log(JSON.stringify(d, null, 2))"
