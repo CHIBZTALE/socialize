@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Socialize",
+    "slug": "socialize",
+    "scheme": "socialize",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.socialize.app"
+    },
+    "ios": {
+      "bundleIdentifier": "com.socialize.app"
+    }
+  }
+}
