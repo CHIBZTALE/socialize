@@ -1,0 +1,51 @@
+name: Diagnose failed Socialize EAS build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/eas-build-diagnostics.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-eas-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Retrieve detailed Expo build metadata and logs
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: 087a9b31-ef21-48c6-8adc-9e4db5d2e5d0
+        run: |
+          npx --yes eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-build.json
+          echo "===== EAS BUILD METADATA ====="
+          cat /tmp/eas-build.json
+          node <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('/tmp/eas-build.json', 'utf8'));
+          const found = [];
+          function walk(value, path = '') {
+            if (!value || typeof value !== 'object') return;
+            for (const [key, item] of Object.entries(value)) {
+              const next = path ? path + '.' + key : key;
+              if (typeof item === 'string' && /log|artifact|url/i.test(key)) {
+                found.push({ path: next, value: item });
+              } else if (item && typeof item === 'object') {
+                walk(item, next);
+              }
+            }
+          }
+          walk(data);
+          console.log('===== LOG / ARTIFACT REFERENCES =====');
+          for (const item of found) console.log(item.path + ': ' + item.value);
+          NODE
