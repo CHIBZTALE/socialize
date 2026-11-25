@@ -1,5 +1,4 @@
 name: Diagnose failed Socialize EAS build
-# Follow-up commit activates this diagnostic workflow on the default branch.
 
 on:
   push:
@@ -7,6 +6,7 @@ on:
       - main
     paths:
       - ".github/workflows/eas-build-diagnostics.yml"
+      - "apps/mobile/app.json"
 
 permissions:
   contents: read
@@ -29,31 +29,15 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Retrieve failed Expo build metadata directly
+      - name: Verify linked Expo project and retrieve failed build
+        working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           BUILD_ID: 087a9b31-ef21-48c6-8adc-9e4db5d2e5d0
         run: |
-          curl --fail-with-body --silent --show-error \
-            -H "Authorization: Bearer $EXPO_TOKEN" \
-            -H "Accept: application/json" \
-            "https://api.expo.dev/v2/builds/$BUILD_ID" \
-            -o /tmp/eas-build.json
-          echo "===== EAS BUILD METADATA ====="
-          cat /tmp/eas-build.json
-          echo
-          echo "===== LOG / ARTIFACT REFERENCES ====="
-          node <<'NODE'
-          const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('/tmp/eas-build.json', 'utf8'));
-          function walk(value, path = '') {
-            if (!value || typeof value !== 'object') return;
-            for (const [key, item] of Object.entries(value)) {
-              const next = path ? path + '.' + key : key;
-              if (typeof item === 'string' && /log|artifact|url/i.test(key)) {
-                console.log(next + ': ' + item);
-              } else if (item && typeof item === 'object') walk(item, next);
-            }
-          }
-          walk(data);
-          NODE
+          echo "===== LINKED EXPO PROJECT ====="
+          npx --yes eas-cli@latest project:info --non-interactive
+          echo "===== FAILED BUILD DETAILS ====="
+          npx --yes eas-cli@latest build:view "$BUILD_ID" --json --non-interactive | tee /tmp/eas-build.json
+          echo "===== BUILD LOG REFERENCES ====="
+          node -e "const d=require('/tmp/eas-build.json'); console.log(JSON.stringify(d, null, 2))"
