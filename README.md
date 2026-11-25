@@ -6,6 +6,8 @@ Socialize is a cross-platform social networking project. This repository contain
 - Account registration and sign-in (email + password)
 - User profile endpoint
 - Public text-post feed and authenticated text publishing
+- Post comments and six reaction types (like, love, haha, wow, sad, angry)
+- Versioned PostgreSQL migration; media asset/attachment metadata model ready for storage-provider integration
 - PostgreSQL data model managed by Prisma
 - NestJS API, Next.js web client and Expo React Native mobile client
 - Docker Compose development services (PostgreSQL and Redis)
@@ -18,7 +20,7 @@ This is an early development build, **not a production launch**. Before public r
 - `apps/mobile`: Expo / React Native application
 - `packages/shared`: shared TypeScript contracts
 - PostgreSQL is the source of truth; Redis is reserved for caching, rate limits and ephemeral presence.
-- Media files must use object/video storage and a CDN, never database blobs.
+- Media files must use object/video storage and a CDN, never database blobs. The current schema tracks media assets and post attachments, but direct uploads are not enabled until a storage provider and credentials are configured; no media upload is advertised as working yet.
 
 ## Requirements
 - Node.js 20+
@@ -56,6 +58,10 @@ Run `pnpm dev:mobile`. For a physical Android phone, set `EXPO_PUBLIC_API_URL` i
 - `DELETE /friends/:friendId` — remove a friend
 - `GET /posts`
 - `POST /posts` — `{ "text" }`, Bearer token required
+- `GET /posts/:postId/comments` — list comments
+- `POST /posts/:postId/comments` — `{ "text" }`, Bearer token required
+- `PUT /posts/:postId/reaction` — `{ "type": "LIKE|LOVE|HAHA|WOW|SAD|ANGRY" }`, Bearer token required
+- `DELETE /posts/:postId/reaction` — remove your reaction, Bearer token required
 
 ## Product roadmap
 1. Foundation: accounts, profiles, friends, feed and basic posts.
