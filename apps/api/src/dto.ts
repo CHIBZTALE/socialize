@@ -1,3 +1,4 @@
+import { ReactionType } from '@prisma/client';
 import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional, IsEnum } from 'class-validator';
 export class RegisterDto {
   @IsString() @MinLength(2) @MaxLength(80) name!: string;
@@ -24,15 +25,6 @@ export class CreateCommentDto {
   @IsString() @MinLength(1) @MaxLength(2000) text!: string;
 }
 
-export enum PostReactionInput {
-  LIKE = 'LIKE',
-  LOVE = 'LOVE',
-  HAHA = 'HAHA',
-  WOW = 'WOW',
-  SAD = 'SAD',
-  ANGRY = 'ANGRY',
-}
-
 export class CreateReactionDto {
-  @IsEnum(PostReactionInput) type!: PostReactionInput;
+  @IsEnum(ReactionType) type!: ReactionType;
 }
