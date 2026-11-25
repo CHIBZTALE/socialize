@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional, IsEnum } from 'class-validator';
 export class RegisterDto {
   @IsString() @MinLength(2) @MaxLength(80) name!: string;
   @IsString() @MinLength(3) @MaxLength(24) @Matches(/^[a-zA-Z0-9_]+$/) username!: string;
@@ -18,4 +18,21 @@ export class UpdateProfileDto {
   @IsOptional() @IsString() @MinLength(3) @MaxLength(24) @Matches(/^[a-zA-Z0-9_]+$/) username?: string;
   @IsOptional() @IsString() @MaxLength(160) bio?: string;
   @IsOptional() @IsString() @MaxLength(500) avatarUrl?: string;
+}
+
+export class CreateCommentDto {
+  @IsString() @MinLength(1) @MaxLength(2000) text!: string;
+}
+
+export enum PostReactionInput {
+  LIKE = 'LIKE',
+  LOVE = 'LOVE',
+  HAHA = 'HAHA',
+  WOW = 'WOW',
+  SAD = 'SAD',
+  ANGRY = 'ANGRY',
+}
+
+export class CreateReactionDto {
+  @IsEnum(PostReactionInput) type!: PostReactionInput;
 }
