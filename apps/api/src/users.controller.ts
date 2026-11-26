@@ -12,7 +12,7 @@ export class UsersController {
   async me(@Req() req: any) {
     return this.prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, name: true, username: true, email: true, bio: true, avatarUrl: true, createdAt: true },
+      select: { id: true, name: true, username: true, email: true, bio: true, avatarUrl: true, coverUrl: true, createdAt: true },
     });
   }
 
