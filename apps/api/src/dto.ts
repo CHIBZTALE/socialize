@@ -19,6 +19,7 @@ export class UpdateProfileDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(50) username?: string;
   @IsOptional() @IsString() @MaxLength(160) bio?: string;
   @IsOptional() @IsString() @MaxLength(500) avatarUrl?: string;
+  @IsOptional() @IsString() @MaxLength(500) coverUrl?: string;
 }
 
 export class CreateCommentDto {
