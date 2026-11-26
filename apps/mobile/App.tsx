@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import {
   SafeAreaView, View, Text, TextInput, Pressable, FlatList, StyleSheet, Image,
   Alert, StatusBar, ScrollView, KeyboardAvoidingView, Platform
@@ -6,7 +7,7 @@ import {
 
 const API = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
 type Reaction = 'LIKE'|'LOVE'|'HAHA'|'WOW'|'SAD'|'ANGRY';
-type User = { id:string; name:string; username:string; bio?:string; email?:string };
+type User = { id:string; name:string; username:string; bio?:string; email?:string; avatarUrl?:string|null; coverUrl?:string|null };
 type FriendRequest = { id:string; sender:User };
 type Comment = { id:string; text:string; author:{name:string;username:string} };
 type Post = { id:string; text:string; createdAt:string; author:{name:string;username:string}; _count?:{comments:number;reactions:number} };
@@ -24,10 +25,10 @@ const timeAgo = (value:string) => {
   return Math.floor(mins/1440) + 'd';
 };
 
-function Avatar({name,size=44,ring=false}:{name?:string;size?:number;ring?:boolean}) {
-  const photo = 'https://i.pravatar.cc/160?u='+encodeURIComponent(name||'socialize');
+function Avatar({name,size=44,ring=false,photo}:{name?:string;size?:number;ring?:boolean;photo?:string|null}) {
+  const imageUri = photo || undefined;
   return <View style={[s.avatarOuter,{width:size+6,height:size+6,borderRadius:(size+6)/2},ring&&s.storyRing]}>
-    <Image source={{uri:photo}} style={{width:size,height:size,borderRadius:size/2,backgroundColor:'#292447'}} />
+    {imageUri?<Image source={{uri:imageUri}} style={{width:size,height:size,borderRadius:size/2,backgroundColor:'#292447'}}/>:<View style={{width:size,height:size,borderRadius:size/2,backgroundColor:'#302653',alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:size*.42,fontWeight:'900',color:'#D9CEFF'}}>{initials(name)}</Text></View>}
   </View>;
 }
 function Pill({children,active=false,onPress}:{children:React.ReactNode;active?:boolean;onPress?:()=>void}) {
@@ -51,7 +52,8 @@ export default function App() {
   const [results,setResults] = useState<User[]>([]);
   const [friends,setFriends] = useState<User[]>([]);
   const [requests,setRequests] = useState<FriendRequest[]>([]);
-  const [profile,setProfile] = useState({name:'',username:'',bio:''});
+  const [profile,setProfile] = useState({name:'',username:'',bio:'',avatarUrl:'',coverUrl:''});
+  const [photoBusy,setPhotoBusy] = useState(false);
 
   const headers = (t=token) => ({'Content-Type':'application/json',Authorization:'Bearer '+t});
   async function loadMine(t:string,items:Post[]) {
@@ -74,7 +76,7 @@ export default function App() {
       ]);
       if(fr.ok)setFriends(await fr.json());
       if(rr.ok)setRequests(await rr.json());
-      if(me.ok){const u=await me.json();setUser(u);setProfile({name:u.name,username:u.username,bio:u.bio||''});}
+      if(me.ok){const u=await me.json();setUser(u);setProfile({name:u.name,username:u.username,bio:u.bio||'',avatarUrl:u.avatarUrl||'',coverUrl:u.coverUrl||''});}
     } catch { Alert.alert('Socialize','Could not load your account details.'); }
   }
   useEffect(()=>{refresh();},[]);
@@ -138,9 +140,34 @@ export default function App() {
     try{const r=await fetch(API+'/friends/'+id,{method:'DELETE',headers:headers()});const d=await r.json();if(!r.ok)throw Error(d.message||'Could not remove friend');await loadPrivate(token);}
     catch(e:any){Alert.alert('Socialize',e.message);}
   }
+  async function chooseProfilePhoto(kind:'avatar'|'cover') {
+    const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if(!permission.granted){Alert.alert('Photo access needed','Allow SOCIALIZE to access your photos so you can choose a '+(kind==='avatar'?'profile picture':'cover photo')+'.');return;}
+    const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:kind==='avatar'?[1,1]:[16,9],quality:0.82});
+    if(result.canceled||!result.assets?.[0])return;
+    const cloudName=process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const preset=process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if(!cloudName||!preset){Alert.alert('Photo storage not connected','Your photo is selected, but permanent photo storage has not been configured yet. I will connect the upload service before enabling Save.');return;}
+    setPhotoBusy(true);
+    try {
+      const asset=result.assets[0];
+      const body=new FormData();
+      body.append('file',{uri:asset.uri,name:asset.fileName||'socialize-photo.jpg',type:asset.mimeType||'image/jpeg'} as any);
+      body.append('upload_preset',preset);
+      body.append('folder','socialize/profiles');
+      const response=await fetch('https://api.cloudinary.com/v1_1/'+cloudName+'/image/upload',{method:'POST',body});
+      const uploaded=await response.json();
+      if(!response.ok||!uploaded.secure_url)throw new Error(uploaded.error?.message||'Photo upload failed');
+      const next={...profile,[kind==='avatar'?'avatarUrl':'coverUrl']:uploaded.secure_url};
+      const saved=await fetch(API+'/users/me',{method:'PATCH',headers:headers(),body:JSON.stringify(next)});
+      const data=await saved.json();if(!saved.ok)throw new Error(data.message||'Could not save your photo');
+      setProfile({...next,name:data.name,username:data.username,bio:data.bio||''});setUser(data);
+      Alert.alert('Photo updated',kind==='avatar'?'Your profile picture has been updated.':'Your cover photo has been updated.');
+    } catch(e:any){Alert.alert('Photo upload',e.message||'Could not upload this photo.');} finally{setPhotoBusy(false);}
+  }
   async function saveProfile() {
     setBusy(true);
-    try{const r=await fetch(API+'/users/me',{method:'PATCH',headers:headers(),body:JSON.stringify(profile)});const d=await r.json();if(!r.ok)throw Error(d.message||'Could not update profile');setUser(d);Alert.alert('Socialize','Profile updated.');}
+    try{const r=await fetch(API+'/users/me',{method:'PATCH',headers:headers(),body:JSON.stringify({name:profile.name,username:profile.username,bio:profile.bio})});const d=await r.json();if(!r.ok)throw Error(d.message||'Could not update profile');setUser(d);Alert.alert('Socialize','Profile updated.');}
     catch(e:any){Alert.alert('Socialize',e.message);}finally{setBusy(false);}
   }
   function signOut(){setUser(null);setToken('');setMine({});setFriends([]);setRequests([]);setResults([]);setTab('home');}
@@ -184,7 +211,7 @@ export default function App() {
     <StatusBar barStyle="light-content" backgroundColor="#090A12"/>
     {header(tab==='home'?'A little closer, every day.':tab==='friends'?'Find your people.':tab==='create'?'Share a moment.':tab==='chats'?'Conversations':'Your updates')}
     {tab==='home'&&<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.feedContent}>
-      <View style={s.welcomeRow}><View><Text style={s.hello}>YOUR COMMUNITY</Text><Text style={s.pageTitle}>Home</Text></View><Pressable onPress={()=>setTab('profile')}><Avatar name={user.name} size={38}/></Pressable></View>
+      <View style={s.welcomeRow}><View><Text style={s.hello}>YOUR COMMUNITY</Text><Text style={s.pageTitle}>Home</Text></View><Pressable onPress={()=>setTab('profile')}><Avatar name={user.name} size={38} photo={user.avatarUrl}/></Pressable></View>
       <View style={s.storiesCard}><View style={s.sectionHead}><Text style={s.sectionTitle}>Stories</Text><Text style={s.sectionHint}>See all  ›</Text></View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:14,paddingVertical:4}}>
           <Pressable style={s.storyItem} onPress={()=>setTab('create')}><View style={s.createStoryAvatar}><Avatar name={user.name} size={58}/><Text style={s.storyAddBadge}>＋</Text></View><Text style={s.storyLabel}>Create story</Text></Pressable>
@@ -192,7 +219,7 @@ export default function App() {
           {friends.length===0&&<Text style={s.emptyStories}>Add friends to see their moments here.</Text>}
         </ScrollView>
       </View>
-      <View style={s.composer}><Avatar name={user.name} size={40}/><Pressable style={s.composerPrompt} onPress={()=>setTab('create')}><Text style={s.composerText}>What's on your mind?</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerPhoto}>▧</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerVideo}>▶</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerEmoji}>☻</Text></Pressable></View>
+      <View style={s.composer}><Avatar name={user.name} size={40} photo={user.avatarUrl}/><Pressable style={s.composerPrompt} onPress={()=>setTab('create')}><Text style={s.composerText}>What's on your mind?</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerPhoto}>▧</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerVideo}>▶</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerEmoji}>☻</Text></Pressable></View>
       <View style={s.feedSectionHead}><Text style={s.sectionTitle}>Latest posts</Text><Pressable onPress={()=>refresh()}><Text style={s.refreshText}>Refresh ↻</Text></Pressable></View>
       {posts.length===0?<View style={s.emptyCard}><Text style={s.emptyIcon}>✦</Text><Text style={s.emptyTitle}>It's quiet in here.</Text><Text style={s.emptyCopy}>Be the first to share a thought with your community.</Text><Pressable style={s.primaryBtn} onPress={()=>setTab('create')}><Text style={s.primaryBtnText}>Create a post  ↗</Text></Pressable></View>:posts.map(item=><View style={s.postCard} key={item.id}>
         <View style={s.postTop}><Avatar name={item.author.name} size={42}/><View style={{flex:1}}><Text style={s.personName}>{item.author.name}</Text><Text style={s.handle}>@{item.author.username}  ·  {item.createdAt?timeAgo(item.createdAt):'now'}</Text></View><Text style={s.more}>•••</Text></View>
@@ -209,11 +236,11 @@ export default function App() {
       <View style={s.panel}><Text style={s.sectionTitle}>Your friends <Text style={s.countPill}>{friends.length}</Text></Text>{friends.length===0?<Text style={s.muted}>Your connections will appear here.</Text>:friends.map(f=>person(f,<Pressable style={s.ghostBtn} onPress={()=>removeFriend(f.id)}><Text style={s.ghostBtnText}>Remove</Text></Pressable>))}</View>
     </ScrollView>}
     {tab==='create'&&<ScrollView contentContainerStyle={s.pageContent}><Text style={s.pageTitle}>Share a <Text style={s.titleAccent}>moment.</Text></Text><Text style={s.pageSub}>Your voice belongs here.</Text>
-      <View style={s.panel}><View style={s.postTop}><Avatar name={user.name}/><View><Text style={s.personName}>{user.name}</Text><Text style={s.handle}>Posting to your community</Text></View></View><TextInput style={s.postInput} multiline textAlignVertical="top" placeholder="What would you like to share today?" placeholderTextColor="#77798A" value={postText} onChangeText={setPostText}/><View style={s.createFooter}><Text style={s.muted}>{postText.length} characters</Text><Pressable style={[s.primaryBtn,{minWidth:140,marginTop:0}]} onPress={publish} disabled={busy||!postText.trim()}><Text style={s.primaryBtnText}>{busy?'Sharing…':'Share post  ↗'}</Text></Pressable></View></View>
+      <View style={s.panel}><View style={s.postTop}><Avatar name={user.name} photo={user.avatarUrl}/><View><Text style={s.personName}>{user.name}</Text><Text style={s.handle}>Posting to your community</Text></View></View><TextInput style={s.postInput} multiline textAlignVertical="top" placeholder="What would you like to share today?" placeholderTextColor="#77798A" value={postText} onChangeText={setPostText}/><View style={s.createFooter}><Text style={s.muted}>{postText.length} characters</Text><Pressable style={[s.primaryBtn,{minWidth:140,marginTop:0}]} onPress={publish} disabled={busy||!postText.trim()}><Text style={s.primaryBtnText}>{busy?'Sharing…':'Share post  ↗'}</Text></Pressable></View></View>
       <View style={s.tipCard}><Text style={s.tipIcon}>✧</Text><Text style={s.tipTitle}>A little reminder</Text><Text style={s.tipCopy}>Keep it kind. Keep it real. Make this a space people love coming back to.</Text></View>
     </ScrollView>}
     {(tab==='chats'||tab==='alerts')&&<View style={s.comingWrap}><View style={s.comingOrb}><Text style={s.comingGlyph}>{tab==='chats'?'✉':'♧'}</Text></View><Text style={s.comingTitle}>{tab==='chats'?'Conversations are coming.':'Your updates are coming.'}</Text><Text style={s.comingCopy}>{tab==='chats'?'Private messaging is planned for the next development stage.':'Notifications for reactions, comments and friend activity are planned next.'}</Text><View style={s.comingTag}><Text style={s.comingTagText}>ON THE ROADMAP</Text></View></View>}
-    {tab==='profile'&&<ScrollView contentContainerStyle={s.pageContent}><View style={s.profileCover}><Image source={{uri:'https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=1200'}} style={s.coverImage}/><Pressable style={s.coverCamera}><Text style={s.coverCameraText}>▣</Text></Pressable></View><View style={s.profileHero}><View style={s.profileAvatarWrap}><Avatar name={user.name} size={94}/></View><Text style={s.profileName}>{user.name} <Text style={s.verifiedMark}>✓</Text></Text><Text style={s.handle}>@{user.username}</Text><Text style={s.profileBio}>{profile.bio||'Content Creator | Dream Big | Stay Positive | Let’s Build a Better Tomorrow Together 💯'}</Text><View style={s.profileStats}><View><Text style={s.profileStatNumber}>{friends.length}</Text><Text style={s.profileStatLabel}>Friends</Text></View><View><Text style={s.profileStatNumber}>0</Text><Text style={s.profileStatLabel}>Followers</Text></View><View><Text style={s.profileStatNumber}>0</Text><Text style={s.profileStatLabel}>Following</Text></View></View><View style={s.profileActions}><Pressable style={s.profileMainAction} onPress={()=>setTab('friends')}><Text style={s.profileActionText}>＋ Add Friend</Text></Pressable><Pressable style={s.profileMessageAction} onPress={()=>setTab('chats')}><Text style={s.profileActionText}>● Message</Text></Pressable></View><View style={s.profileTabs}><Text style={s.profileTabActive}>Posts</Text><Text style={s.profileTab}>About</Text><Text style={s.profileTab}>Friends</Text><Text style={s.profileTab}>Photos</Text></View></View><View style={s.panel}><Text style={s.sectionTitle}>Edit profile</Text><Text style={s.inputLabel}>DISPLAY NAME</Text><TextInput style={s.input} value={profile.name} onChangeText={name=>setProfile({...profile,name})}/><Text style={s.inputLabel}>USERNAME</Text><TextInput style={s.input} value={profile.username} onChangeText={username=>setProfile({...profile,username})}/><Text style={s.inputLabel}>BIO</Text><TextInput style={[s.input,{height:100}]} multiline maxLength={160} placeholder="Tell people a little about yourself" placeholderTextColor="#77798A" value={profile.bio} onChangeText={bio=>setProfile({...profile,bio})}/><Text style={s.muted}>{profile.bio.length}/160 characters</Text><Pressable style={s.primaryBtn} onPress={saveProfile} disabled={busy}><Text style={s.primaryBtnText}>{busy?'Saving…':'Save changes  ↗'}</Text></Pressable></View><Pressable style={s.signOut} onPress={signOut}><Text style={s.signOutText}>Sign out</Text></Pressable></ScrollView>}
+    {tab==='profile'&&<ScrollView contentContainerStyle={s.pageContent}><View style={s.profileCover}>{profile.coverUrl?<Image source={{uri:profile.coverUrl}} style={s.coverImage}/>:<View style={s.coverPlaceholder}><Text style={s.coverPlaceholderTitle}>Your story starts here</Text><Text style={s.coverPlaceholderSub}>Add a cover photo</Text></View>}<Pressable style={s.coverCamera} onPress={()=>chooseProfilePhoto('cover')} disabled={photoBusy}><Text style={s.coverCameraText}>▣</Text></Pressable></View><View style={s.profileHero}><View style={s.profileAvatarWrap}><Pressable onPress={()=>chooseProfilePhoto('avatar')} disabled={photoBusy}><Avatar name={user.name} size={94} photo={profile.avatarUrl||user.avatarUrl}/><View style={s.avatarCamera}><Text style={s.avatarCameraText}>▣</Text></View></Pressable></View><Text style={s.profileName}>{user.name} <Text style={s.verifiedMark}>✓</Text></Text><Text style={s.handle}>@{user.username}</Text><Text style={s.profileBio}>{profile.bio||'Content Creator | Dream Big | Stay Positive | Let’s Build a Better Tomorrow Together 💯'}</Text><View style={s.profileStats}><View><Text style={s.profileStatNumber}>{friends.length}</Text><Text style={s.profileStatLabel}>Friends</Text></View><View><Text style={s.profileStatNumber}>0</Text><Text style={s.profileStatLabel}>Followers</Text></View><View><Text style={s.profileStatNumber}>0</Text><Text style={s.profileStatLabel}>Following</Text></View></View><View style={s.profileActions}><Pressable style={s.profileMainAction} onPress={()=>setTab('friends')}><Text style={s.profileActionText}>＋ Add Friend</Text></Pressable><Pressable style={s.profileMessageAction} onPress={()=>setTab('chats')}><Text style={s.profileActionText}>● Message</Text></Pressable></View><View style={s.profileTabs}><Text style={s.profileTabActive}>Posts</Text><Text style={s.profileTab}>About</Text><Text style={s.profileTab}>Friends</Text><Text style={s.profileTab}>Photos</Text></View></View><View style={s.panel}><Text style={s.sectionTitle}>Edit profile</Text><Text style={s.muted}>Update your details, profile picture and cover photo.</Text><View style={s.photoEditRow}><Pressable style={s.photoEditButton} onPress={()=>chooseProfilePhoto('avatar')} disabled={photoBusy}><Text style={s.photoEditGlyph}>◉</Text><Text style={s.photoEditText}>Change profile picture</Text></Pressable><Pressable style={s.photoEditButton} onPress={()=>chooseProfilePhoto('cover')} disabled={photoBusy}><Text style={s.photoEditGlyph}>▧</Text><Text style={s.photoEditText}>Change cover photo</Text></Pressable></View>{photoBusy&&<Text style={s.muted}>Uploading your photo…</Text>}<Text style={s.inputLabel}>DISPLAY NAME</Text><TextInput style={s.input} value={profile.name} onChangeText={name=>setProfile({...profile,name})}/><Text style={s.inputLabel}>USERNAME</Text><TextInput style={s.input} value={profile.username} onChangeText={username=>setProfile({...profile,username})}/><Text style={s.inputLabel}>BIO</Text><TextInput style={[s.input,{height:100}]} multiline maxLength={160} placeholder="Tell people a little about yourself" placeholderTextColor="#77798A" value={profile.bio} onChangeText={bio=>setProfile({...profile,bio})}/><Text style={s.muted}>{profile.bio.length}/160 characters</Text><Pressable style={s.primaryBtn} onPress={saveProfile} disabled={busy}><Text style={s.primaryBtnText}>{busy?'Saving…':'Save changes  ↗'}</Text></Pressable></View><Pressable style={s.signOut} onPress={signOut}><Text style={s.signOutText}>Sign out</Text></Pressable></ScrollView>}
     <View style={s.bottomNav}>{navItems.map(n=><Pressable key={n.id} onPress={()=>{setTab(n.id);if(n.id==='friends')loadPrivate(token);}} style={s.navButton}><View style={[s.navIconWrap,tab===n.id&&s.navIconActive]}><Text style={[s.navGlyph,tab===n.id&&s.navGlyphActive]}>{n.glyph}</Text></View><Text style={[s.navLabel,tab===n.id&&s.navLabelActive]}>{n.label}</Text></Pressable>)}</View>
   </SafeAreaView>;
 }
@@ -305,7 +332,7 @@ const s=StyleSheet.create({
   comingGlyph:{fontSize:36,color:'#B69FFF'},comingTitle:{fontSize:21,fontWeight:'900',color:'#F7F6FF',textAlign:'center',marginTop:22},
   comingCopy:{fontSize:13,color:'#85879A',textAlign:'center',lineHeight:21,marginTop:9},
   comingTag:{marginTop:18,borderWidth:1,borderColor:'#51427D',borderRadius:30,paddingHorizontal:13,paddingVertical:7},comingTagText:{fontSize:9,fontWeight:'900',letterSpacing:1.4,color:'#B69FFF'},
-  profileCover:{height:180,borderRadius:16,overflow:'hidden',marginBottom:0,position:'relative'},coverImage:{width:'100%',height:'100%'},coverCamera:{position:'absolute',right:12,bottom:12,width:38,height:38,borderRadius:19,backgroundColor:'#10121E',alignItems:'center',justifyContent:'center'},coverCameraText:{fontSize:18,color:'#fff'},profileHero:{alignItems:'center',paddingVertical:12,marginTop:-44},profileAvatarWrap:{borderWidth:4,borderColor:'#090A12',borderRadius:56},profileName:{fontSize:22,fontWeight:'900',color:'#F7F6FF',marginTop:8},verifiedMark:{color:'#168BFF',fontSize:17},profileBio:{fontSize:12,color:'#D0CFDA',marginTop:10,textAlign:'center',lineHeight:18},profileStats:{width:'100%',flexDirection:'row',justifyContent:'space-around',paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#27293A',marginTop:6},profileStatNumber:{fontSize:19,fontWeight:'900',color:'#F7F6FF',textAlign:'center'},profileStatLabel:{fontSize:11,color:'#A5A6B4',marginTop:3,textAlign:'center'},profileActions:{width:'100%',flexDirection:'row',gap:10,marginTop:14},profileMainAction:{flex:1,backgroundColor:'#5B16F5',borderRadius:25,paddingVertical:13,alignItems:'center'},profileMessageAction:{flex:1,backgroundColor:'#242637',borderRadius:25,paddingVertical:13,alignItems:'center'},profileActionText:{color:'#fff',fontSize:12,fontWeight:'800'},profileTabs:{width:'100%',flexDirection:'row',justifyContent:'space-around',paddingTop:19,paddingBottom:12,marginTop:12,borderBottomWidth:1,borderBottomColor:'#292B3E'},profileTabActive:{color:'#C18BFF',fontSize:13,fontWeight:'800'},profileTab:{color:'#E4E2EC',fontSize:13},
+  profileCover:{height:180,borderRadius:16,overflow:'hidden',marginBottom:0,position:'relative'},coverImage:{width:'100%',height:'100%'},coverCamera:{position:'absolute',right:12,bottom:12,width:38,height:38,borderRadius:19,backgroundColor:'#10121E',alignItems:'center',justifyContent:'center'},coverCameraText:{fontSize:18,color:'#fff'},coverPlaceholder:{flex:1,backgroundColor:'#21183B',alignItems:'center',justifyContent:'center'},coverPlaceholderTitle:{fontSize:18,fontWeight:'900',color:'#F7F6FF'},coverPlaceholderSub:{fontSize:12,color:'#B7A8E8',marginTop:5},avatarCamera:{position:'absolute',right:0,bottom:0,width:27,height:27,borderRadius:14,backgroundColor:'#7959E8',borderWidth:2,borderColor:'#090A12',alignItems:'center',justifyContent:'center'},avatarCameraText:{fontSize:12,color:'#fff'},photoEditRow:{flexDirection:'row',gap:8,marginTop:14},photoEditButton:{flex:1,backgroundColor:'#211B38',borderWidth:1,borderColor:'#45366D',borderRadius:12,padding:12,alignItems:'center',justifyContent:'center'},photoEditGlyph:{fontSize:20,color:'#C1AEFF'},photoEditText:{fontSize:10,color:'#E9E2FF',fontWeight:'800',textAlign:'center',marginTop:5},profileHero:{alignItems:'center',paddingVertical:12,marginTop:-44},profileAvatarWrap:{borderWidth:4,borderColor:'#090A12',borderRadius:56},profileName:{fontSize:22,fontWeight:'900',color:'#F7F6FF',marginTop:8},verifiedMark:{color:'#168BFF',fontSize:17},profileBio:{fontSize:12,color:'#D0CFDA',marginTop:10,textAlign:'center',lineHeight:18},profileStats:{width:'100%',flexDirection:'row',justifyContent:'space-around',paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#27293A',marginTop:6},profileStatNumber:{fontSize:19,fontWeight:'900',color:'#F7F6FF',textAlign:'center'},profileStatLabel:{fontSize:11,color:'#A5A6B4',marginTop:3,textAlign:'center'},profileActions:{width:'100%',flexDirection:'row',gap:10,marginTop:14},profileMainAction:{flex:1,backgroundColor:'#5B16F5',borderRadius:25,paddingVertical:13,alignItems:'center'},profileMessageAction:{flex:1,backgroundColor:'#242637',borderRadius:25,paddingVertical:13,alignItems:'center'},profileActionText:{color:'#fff',fontSize:12,fontWeight:'800'},profileTabs:{width:'100%',flexDirection:'row',justifyContent:'space-around',paddingTop:19,paddingBottom:12,marginTop:12,borderBottomWidth:1,borderBottomColor:'#292B3E'},profileTabActive:{color:'#C18BFF',fontSize:13,fontWeight:'800'},profileTab:{color:'#E4E2EC',fontSize:13},
   signOut:{alignItems:'center',padding:16},signOutText:{fontSize:12,color:'#F08A83',fontWeight:'800'},
   bottomNav:{position:'absolute',left:0,right:0,bottom:0,height:76,backgroundColor:'#10121E',borderTopWidth:1,borderTopColor:'#252739',flexDirection:'row',justifyContent:'space-around',alignItems:'center',paddingBottom:Platform.OS==='android'?7:0},
   navButton:{flex:1,alignItems:'center',justifyContent:'center',gap:4},
