@@ -8,7 +8,7 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.socialize.app",
-      "versionCode": 19
+      "versionCode": 20
     },
     "ios": {
       "bundleIdentifier": "com.socialize.app"
