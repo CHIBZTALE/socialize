@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView, View, Text, TextInput, Pressable, FlatList, StyleSheet,
+  SafeAreaView, View, Text, TextInput, Pressable, FlatList, StyleSheet, Image,
   Alert, StatusBar, ScrollView, KeyboardAvoidingView, Platform
 } from 'react-native';
 
@@ -25,8 +25,9 @@ const timeAgo = (value:string) => {
 };
 
 function Avatar({name,size=44,ring=false}:{name?:string;size?:number;ring?:boolean}) {
+  const photo = 'https://i.pravatar.cc/160?u='+encodeURIComponent(name||'socialize');
   return <View style={[s.avatarOuter,{width:size+6,height:size+6,borderRadius:(size+6)/2},ring&&s.storyRing]}>
-    <View style={[s.avatar,{width:size,height:size,borderRadius:size/2}]}><Text style={[s.avatarText,{fontSize:size*.38}]}>{initials(name)}</Text></View>
+    <Image source={{uri:photo}} style={{width:size,height:size,borderRadius:size/2,backgroundColor:'#292447'}} />
   </View>;
 }
 function Pill({children,active=false,onPress}:{children:React.ReactNode;active?:boolean;onPress?:()=>void}) {
@@ -148,8 +149,8 @@ export default function App() {
     <Avatar name={u.name}/><View style={{flex:1}}><Text style={s.personName}>{u.name}</Text><Text style={s.handle}>@{u.username}</Text></View>{action}
   </View>;
   const header = (subtitle?:string) => <View style={s.topHeader}>
-    <View><Text style={s.brand}>socialize<Text style={s.brandDot}>.</Text></Text>{subtitle&&<Text style={s.headerSub}>{subtitle}</Text>}</View>
-    <Pressable onPress={()=>setTab('profile')} style={s.headerAvatar}><Avatar name={user?.name} size={34}/></Pressable>
+    <View style={s.brandRow}><View style={s.brandSymbol}><Text style={s.brandSymbolText}>s</Text></View><View><Text style={s.brand}>socialize<Text style={s.brandDot}>.</Text></Text>{subtitle&&<Text style={s.headerSub}>{subtitle}</Text>}</View></View>
+    <View style={s.headerTools}><Pressable style={s.headerTool} onPress={()=>setTab('friends')}><Text style={s.headerToolGlyph}>⌕</Text></Pressable><Pressable style={s.headerTool} onPress={()=>setTab('chats')}><Text style={s.headerToolGlyph}>▢</Text></Pressable><Pressable style={s.headerTool} onPress={()=>setTab('alerts')}><Text style={s.headerToolGlyph}>♧</Text></Pressable></View>
   </View>;
   const navItems:{id:Tab;label:string;glyph:string}[]=[
     {id:'home',label:'Home',glyph:'⌂'},{id:'friends',label:'Friends',glyph:'♧'},
@@ -183,16 +184,16 @@ export default function App() {
     <StatusBar barStyle="light-content" backgroundColor="#090A12"/>
     {header(tab==='home'?'A little closer, every day.':tab==='friends'?'Find your people.':tab==='create'?'Share a moment.':tab==='chats'?'Conversations':'Your updates')}
     {tab==='home'&&<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.feedContent}>
-      <View style={s.welcomeRow}><View><Text style={s.hello}>GOOD TO SEE YOU</Text><Text style={s.pageTitle}>Your circle, <Text style={s.titleAccent}>your world.</Text></Text></View><View style={s.onlineDot}/></View>
-      <View style={s.storiesCard}><View style={s.sectionHead}><Text style={s.sectionTitle}>Moments</Text><Text style={s.sectionHint}>Your community</Text></View>
+      <View style={s.welcomeRow}><View><Text style={s.hello}>YOUR COMMUNITY</Text><Text style={s.pageTitle}>Home</Text></View><Pressable onPress={()=>setTab('profile')}><Avatar name={user.name} size={38}/></Pressable></View>
+      <View style={s.storiesCard}><View style={s.sectionHead}><Text style={s.sectionTitle}>Stories</Text><Text style={s.sectionHint}>See all  ›</Text></View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:14,paddingVertical:4}}>
-          <Pressable style={s.storyItem} onPress={()=>setTab('create')}><View style={s.addStory}><Text style={s.addStoryPlus}>＋</Text></View><Text style={s.storyLabel}>Your story</Text></Pressable>
+          <Pressable style={s.storyItem} onPress={()=>setTab('create')}><View style={s.createStoryAvatar}><Avatar name={user.name} size={58}/><Text style={s.storyAddBadge}>＋</Text></View><Text style={s.storyLabel}>Create story</Text></Pressable>
           {friends.slice(0,12).map(f=><View style={s.storyItem} key={f.id}><Avatar name={f.name} size={54} ring/><Text style={s.storyLabel} numberOfLines={1}>{f.name.split(' ')[0]}</Text></View>)}
           {friends.length===0&&<Text style={s.emptyStories}>Add friends to see their moments here.</Text>}
         </ScrollView>
       </View>
-      <Pressable style={s.composer} onPress={()=>setTab('create')}><Avatar name={user.name} size={40}/><View style={s.composerPrompt}><Text style={s.composerText}>What's on your mind, {user.name.split(' ')[0]}?</Text></View><Text style={s.composerPlus}>＋</Text></Pressable>
-      <View style={s.feedSectionHead}><Text style={s.sectionTitle}>The feed</Text><Pressable onPress={()=>refresh()}><Text style={s.refreshText}>Refresh ↻</Text></Pressable></View>
+      <View style={s.composer}><Avatar name={user.name} size={40}/><Pressable style={s.composerPrompt} onPress={()=>setTab('create')}><Text style={s.composerText}>What's on your mind?</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerPhoto}>▧</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerVideo}>▶</Text></Pressable><Pressable onPress={()=>setTab('create')}><Text style={s.composerEmoji}>☻</Text></Pressable></View>
+      <View style={s.feedSectionHead}><Text style={s.sectionTitle}>Latest posts</Text><Pressable onPress={()=>refresh()}><Text style={s.refreshText}>Refresh ↻</Text></Pressable></View>
       {posts.length===0?<View style={s.emptyCard}><Text style={s.emptyIcon}>✦</Text><Text style={s.emptyTitle}>It's quiet in here.</Text><Text style={s.emptyCopy}>Be the first to share a thought with your community.</Text><Pressable style={s.primaryBtn} onPress={()=>setTab('create')}><Text style={s.primaryBtnText}>Create a post  ↗</Text></Pressable></View>:posts.map(item=><View style={s.postCard} key={item.id}>
         <View style={s.postTop}><Avatar name={item.author.name} size={42}/><View style={{flex:1}}><Text style={s.personName}>{item.author.name}</Text><Text style={s.handle}>@{item.author.username}  ·  {item.createdAt?timeAgo(item.createdAt):'now'}</Text></View><Text style={s.more}>•••</Text></View>
         <Text style={s.postBody}>{item.text}</Text>
@@ -212,14 +213,15 @@ export default function App() {
       <View style={s.tipCard}><Text style={s.tipIcon}>✧</Text><Text style={s.tipTitle}>A little reminder</Text><Text style={s.tipCopy}>Keep it kind. Keep it real. Make this a space people love coming back to.</Text></View>
     </ScrollView>}
     {(tab==='chats'||tab==='alerts')&&<View style={s.comingWrap}><View style={s.comingOrb}><Text style={s.comingGlyph}>{tab==='chats'?'✉':'♧'}</Text></View><Text style={s.comingTitle}>{tab==='chats'?'Conversations are coming.':'Your updates are coming.'}</Text><Text style={s.comingCopy}>{tab==='chats'?'Private messaging is planned for the next development stage.':'Notifications for reactions, comments and friend activity are planned next.'}</Text><View style={s.comingTag}><Text style={s.comingTagText}>ON THE ROADMAP</Text></View></View>}
-    {tab==='profile'&&<ScrollView contentContainerStyle={s.pageContent}><View style={s.profileHero}><Avatar name={user.name} size={76}/><Text style={s.profileName}>{user.name}</Text><Text style={s.handle}>@{user.username}</Text><Text style={s.profileBio}>{profile.bio||'Your story is still being written.'}</Text></View><View style={s.panel}><Text style={s.sectionTitle}>Edit profile</Text><Text style={s.inputLabel}>DISPLAY NAME</Text><TextInput style={s.input} value={profile.name} onChangeText={name=>setProfile({...profile,name})}/><Text style={s.inputLabel}>USERNAME</Text><TextInput style={s.input} value={profile.username} onChangeText={username=>setProfile({...profile,username})}/><Text style={s.inputLabel}>BIO</Text><TextInput style={[s.input,{height:100}]} multiline maxLength={160} placeholder="Tell people a little about yourself" placeholderTextColor="#77798A" value={profile.bio} onChangeText={bio=>setProfile({...profile,bio})}/><Text style={s.muted}>{profile.bio.length}/160 characters</Text><Pressable style={s.primaryBtn} onPress={saveProfile} disabled={busy}><Text style={s.primaryBtnText}>{busy?'Saving…':'Save changes  ↗'}</Text></Pressable></View><Pressable style={s.signOut} onPress={signOut}><Text style={s.signOutText}>Sign out</Text></Pressable></ScrollView>}
+    {tab==='profile'&&<ScrollView contentContainerStyle={s.pageContent}><View style={s.profileCover}><Image source={{uri:'https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=1200'}} style={s.coverImage}/><Pressable style={s.coverCamera}><Text style={s.coverCameraText}>▣</Text></Pressable></View><View style={s.profileHero}><View style={s.profileAvatarWrap}><Avatar name={user.name} size={94}/></View><Text style={s.profileName}>{user.name} <Text style={s.verifiedMark}>✓</Text></Text><Text style={s.handle}>@{user.username}</Text><Text style={s.profileBio}>{profile.bio||'Content Creator | Dream Big | Stay Positive | Let’s Build a Better Tomorrow Together 💯'}</Text><View style={s.profileStats}><View><Text style={s.profileStatNumber}>{friends.length}</Text><Text style={s.profileStatLabel}>Friends</Text></View><View><Text style={s.profileStatNumber}>0</Text><Text style={s.profileStatLabel}>Followers</Text></View><View><Text style={s.profileStatNumber}>0</Text><Text style={s.profileStatLabel}>Following</Text></View></View><View style={s.profileActions}><Pressable style={s.profileMainAction} onPress={()=>setTab('friends')}><Text style={s.profileActionText}>＋ Add Friend</Text></Pressable><Pressable style={s.profileMessageAction} onPress={()=>setTab('chats')}><Text style={s.profileActionText}>● Message</Text></Pressable></View><View style={s.profileTabs}><Text style={s.profileTabActive}>Posts</Text><Text style={s.profileTab}>About</Text><Text style={s.profileTab}>Friends</Text><Text style={s.profileTab}>Photos</Text></View></View><View style={s.panel}><Text style={s.sectionTitle}>Edit profile</Text><Text style={s.inputLabel}>DISPLAY NAME</Text><TextInput style={s.input} value={profile.name} onChangeText={name=>setProfile({...profile,name})}/><Text style={s.inputLabel}>USERNAME</Text><TextInput style={s.input} value={profile.username} onChangeText={username=>setProfile({...profile,username})}/><Text style={s.inputLabel}>BIO</Text><TextInput style={[s.input,{height:100}]} multiline maxLength={160} placeholder="Tell people a little about yourself" placeholderTextColor="#77798A" value={profile.bio} onChangeText={bio=>setProfile({...profile,bio})}/><Text style={s.muted}>{profile.bio.length}/160 characters</Text><Pressable style={s.primaryBtn} onPress={saveProfile} disabled={busy}><Text style={s.primaryBtnText}>{busy?'Saving…':'Save changes  ↗'}</Text></Pressable></View><Pressable style={s.signOut} onPress={signOut}><Text style={s.signOutText}>Sign out</Text></Pressable></ScrollView>}
     <View style={s.bottomNav}>{navItems.map(n=><Pressable key={n.id} onPress={()=>{setTab(n.id);if(n.id==='friends')loadPrivate(token);}} style={s.navButton}><View style={[s.navIconWrap,tab===n.id&&s.navIconActive]}><Text style={[s.navGlyph,tab===n.id&&s.navGlyphActive]}>{n.glyph}</Text></View><Text style={[s.navLabel,tab===n.id&&s.navLabelActive]}>{n.label}</Text></Pressable>)}</View>
   </SafeAreaView>;
 }
 
 const s=StyleSheet.create({
   screen:{flex:1,backgroundColor:'#090A12',paddingTop:Platform.OS==='android'?8:0},
-  topHeader:{height:68,paddingHorizontal:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#1C1E2C'},
+  topHeader:{height:70,paddingHorizontal:17,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#1C1E2C'},
+  brandRow:{flexDirection:'row',alignItems:'center',gap:10},brandSymbol:{width:34,height:34,borderRadius:12,backgroundColor:'#4B16E8',alignItems:'center',justifyContent:'center'},brandSymbolText:{fontSize:27,fontWeight:'900',color:'#fff'},headerTools:{flexDirection:'row',alignItems:'center',gap:10},headerTool:{width:34,height:34,borderRadius:17,backgroundColor:'#191B29',alignItems:'center',justifyContent:'center'},headerToolGlyph:{fontSize:22,color:'#F7F6FF'},
   brand:{fontSize:27,fontWeight:'900',letterSpacing:-1.2,color:'#F7F6FF'},brandDot:{color:'#9C7BFF'},
   headerSub:{fontSize:11,color:'#85879A',marginTop:1,letterSpacing:.3},
   headerAvatar:{padding:2},
@@ -260,13 +262,14 @@ const s=StyleSheet.create({
   avatar:{backgroundColor:'#292447',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#55448D'},
   avatarText:{color:'#D9CEFF',fontWeight:'900'},
   storyLabel:{fontSize:10,color:'#B9BBC9',marginTop:6,maxWidth:62},
+  createStoryAvatar:{position:'relative'},storyAddBadge:{position:'absolute',right:-2,bottom:-1,width:23,height:23,borderRadius:12,backgroundColor:'#286BFF',color:'#fff',fontSize:19,textAlign:'center',overflow:'hidden'},
   addStory:{width:60,height:60,borderRadius:30,backgroundColor:'#1C2032',borderWidth:1,borderColor:'#49416D',alignItems:'center',justifyContent:'center'},
   addStoryPlus:{fontSize:30,color:'#B69FFF',fontWeight:'300',marginTop:-2},
   emptyStories:{fontSize:11,color:'#77798A',alignSelf:'center',paddingVertical:18},
   composer:{flexDirection:'row',alignItems:'center',backgroundColor:'#121421',borderWidth:1,borderColor:'#24263A',borderRadius:17,padding:12,marginBottom:20,gap:10},
   composerPrompt:{flex:1,backgroundColor:'#0C0E19',borderRadius:12,padding:12},
   composerText:{fontSize:12,color:'#898B9D'},
-  composerPlus:{fontSize:25,color:'#B19AFF',paddingHorizontal:5},
+  composerPlus:{fontSize:25,color:'#B19AFF',paddingHorizontal:5},composerPhoto:{fontSize:22,color:'#FF4C55',paddingHorizontal:4},composerVideo:{fontSize:20,color:'#A13BFF',paddingHorizontal:4},composerEmoji:{fontSize:23,color:'#FFC928',paddingHorizontal:4},
   feedSectionHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:11},
   refreshText:{fontSize:11,color:'#B19AFF',fontWeight:'700'},
   emptyCard:{backgroundColor:'#121421',borderWidth:1,borderColor:'#24263A',borderRadius:20,padding:24,alignItems:'center',marginTop:4},
@@ -302,7 +305,7 @@ const s=StyleSheet.create({
   comingGlyph:{fontSize:36,color:'#B69FFF'},comingTitle:{fontSize:21,fontWeight:'900',color:'#F7F6FF',textAlign:'center',marginTop:22},
   comingCopy:{fontSize:13,color:'#85879A',textAlign:'center',lineHeight:21,marginTop:9},
   comingTag:{marginTop:18,borderWidth:1,borderColor:'#51427D',borderRadius:30,paddingHorizontal:13,paddingVertical:7},comingTagText:{fontSize:9,fontWeight:'900',letterSpacing:1.4,color:'#B69FFF'},
-  profileHero:{alignItems:'center',paddingVertical:23},profileName:{fontSize:22,fontWeight:'900',color:'#F7F6FF',marginTop:11},profileBio:{fontSize:12,color:'#A1A2B0',marginTop:10,textAlign:'center'},
+  profileCover:{height:180,borderRadius:16,overflow:'hidden',marginBottom:0,position:'relative'},coverImage:{width:'100%',height:'100%'},coverCamera:{position:'absolute',right:12,bottom:12,width:38,height:38,borderRadius:19,backgroundColor:'#10121E',alignItems:'center',justifyContent:'center'},coverCameraText:{fontSize:18,color:'#fff'},profileHero:{alignItems:'center',paddingVertical:12,marginTop:-44},profileAvatarWrap:{borderWidth:4,borderColor:'#090A12',borderRadius:56},profileName:{fontSize:22,fontWeight:'900',color:'#F7F6FF',marginTop:8},verifiedMark:{color:'#168BFF',fontSize:17},profileBio:{fontSize:12,color:'#D0CFDA',marginTop:10,textAlign:'center',lineHeight:18},profileStats:{width:'100%',flexDirection:'row',justifyContent:'space-around',paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#27293A',marginTop:6},profileStatNumber:{fontSize:19,fontWeight:'900',color:'#F7F6FF',textAlign:'center'},profileStatLabel:{fontSize:11,color:'#A5A6B4',marginTop:3,textAlign:'center'},profileActions:{width:'100%',flexDirection:'row',gap:10,marginTop:14},profileMainAction:{flex:1,backgroundColor:'#5B16F5',borderRadius:25,paddingVertical:13,alignItems:'center'},profileMessageAction:{flex:1,backgroundColor:'#242637',borderRadius:25,paddingVertical:13,alignItems:'center'},profileActionText:{color:'#fff',fontSize:12,fontWeight:'800'},profileTabs:{width:'100%',flexDirection:'row',justifyContent:'space-around',paddingTop:19,paddingBottom:12,marginTop:12,borderBottomWidth:1,borderBottomColor:'#292B3E'},profileTabActive:{color:'#C18BFF',fontSize:13,fontWeight:'800'},profileTab:{color:'#E4E2EC',fontSize:13},
   signOut:{alignItems:'center',padding:16},signOutText:{fontSize:12,color:'#F08A83',fontWeight:'800'},
   bottomNav:{position:'absolute',left:0,right:0,bottom:0,height:76,backgroundColor:'#10121E',borderTopWidth:1,borderTopColor:'#252739',flexDirection:'row',justifyContent:'space-around',alignItems:'center',paddingBottom:Platform.OS==='android'?7:0},
   navButton:{flex:1,alignItems:'center',justifyContent:'center',gap:4},
